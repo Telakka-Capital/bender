@@ -122,6 +122,29 @@ class TestInvokeClaude:
         assert "my-session" in cmd_args
         assert "--resume" not in cmd_args
 
+    async def test_invocation_with_permission_mode(self, tmp_path: Path) -> None:
+        """Passes an explicit permission mode to Claude Code."""
+        json_output = json.dumps({"result": "ok"})
+        mock_process = AsyncMock()
+        mock_process.communicate = AsyncMock(
+            return_value=(json_output.encode(), b"")
+        )
+        mock_process.returncode = 0
+
+        with patch(
+            "bender.claude_code.asyncio.create_subprocess_exec",
+            return_value=mock_process,
+        ) as mock_exec:
+            await invoke_claude(
+                "hello",
+                tmp_path,
+                permission_mode="bypassPermissions",
+            )
+
+        cmd_args = mock_exec.call_args[0]
+        mode_index = cmd_args.index("--permission-mode")
+        assert cmd_args[mode_index + 1] == "bypassPermissions"
+
     async def test_invocation_with_resume(self, tmp_path: Path) -> None:
         """Passes --resume <session_id> when resume=True."""
         json_output = json.dumps({"result": "resumed"})

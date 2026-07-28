@@ -65,9 +65,7 @@ class TestInvokeAuthentication:
 
     def test_missing_auth_header_returns_unauthorized(self, client: TestClient) -> None:
         """Returns 401 when Authorization header is missing."""
-        response = client.post(
-            "/api/invoke", json={"channel": "C123", "message": "Test"}
-        )
+        response = client.post("/api/invoke", json={"channel": "C123", "message": "Test"})
         assert response.status_code == 401
 
     def test_invalid_api_key_returns_401(self, client: TestClient) -> None:
@@ -108,14 +106,12 @@ class TestInvokeEndpoint:
         session_manager: SessionManager,
     ) -> None:
         """Successful invocation creates thread, calls Claude, posts response."""
-        mock_claude_response = ClaudeResponse(
-            result="Claude says hello", session_id="session-abc"
-        )
+        mock_claude_response = ClaudeResponse(result="Claude says hello", session_id="session-abc")
         with patch(
             "bender.api.invoke_claude",
             new_callable=AsyncMock,
             return_value=mock_claude_response,
-        ):
+        ) as mock_invoke:
             response = await async_client.post(
                 "/api/invoke",
                 json={"channel": "C123", "message": "Hello Claude"},
@@ -126,6 +122,7 @@ class TestInvokeEndpoint:
         data = response.json()
         assert data["thread_ts"] == "1234567890.123456"
         assert data["response"] == "Claude says hello"
+        assert mock_invoke.await_args.kwargs["timeout"] == 900
 
     async def test_invoke_creates_session(
         self,
@@ -229,9 +226,7 @@ class TestInvokeResponseModel:
 
     def test_valid_response(self) -> None:
         """Valid response serializes correctly."""
-        resp = InvokeResponse(
-            thread_ts="1234.5678", session_id="s1", response="hello"
-        )
+        resp = InvokeResponse(thread_ts="1234.5678", session_id="s1", response="hello")
         assert resp.thread_ts == "1234.5678"
         assert resp.session_id == "s1"
         assert resp.response == "hello"

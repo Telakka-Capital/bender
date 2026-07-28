@@ -55,6 +55,7 @@ class TestHandleMention:
             def decorator(func):
                 handlers[event_type] = func
                 return func
+
             return decorator
 
         mock_app.event = capture_event
@@ -70,25 +71,40 @@ class TestHandleMention:
             "text": "<@U12345> check the logs",
             "ts": "1234567890.000001",
             "channel": "C123",
+            "user": "U99999",
         }
 
         mock_response = ClaudeResponse(result="Logs look fine", session_id="s1")
-        with patch("bender.slack_handler.invoke_claude", new_callable=AsyncMock, return_value=mock_response):
+        with patch(
+            "bender.slack_handler.invoke_claude", new_callable=AsyncMock, return_value=mock_response
+        ):
             await handler(event=event, say=mock_say)
 
         # Session should be created
         session_id = await session_manager.get_session("1234567890.000001")
         assert session_id is not None
 
-        # Response should be posted
-        mock_say.assert_called_once_with(text="Logs look fine", thread_ts="1234567890.000001")
+        # Work is acknowledged immediately, then the response is posted.
+        assert mock_say.await_args_list[0].kwargs == {
+            "text": "Accepted — I’m working on this now.",
+            "thread_ts": "1234567890.000001",
+        }
+        assert mock_say.await_args_list[1].kwargs == {
+            "text": "Logs look fine",
+            "thread_ts": "1234567890.000001",
+        }
 
     async def test_mention_empty_text_responds_help(
         self, setup_handler, mock_say: AsyncMock
     ) -> None:
         """Empty mention text gets a help response."""
         handler = setup_handler["app_mention"]
-        event = {"text": "<@U12345>", "ts": "1234567890.000001", "channel": "C123"}
+        event = {
+            "text": "<@U12345>",
+            "ts": "1234567890.000001",
+            "channel": "C123",
+            "user": "U12345",
+        }
 
         await handler(event=event, say=mock_say)
         mock_say.assert_called_once_with(text="How can I help?", thread_ts="1234567890.000001")
@@ -98,7 +114,12 @@ class TestHandleMention:
     ) -> None:
         """Posts error message when Claude Code invocation fails."""
         handler = setup_handler["app_mention"]
-        event = {"text": "<@U12345> do something", "ts": "1234567890.000001", "channel": "C123"}
+        event = {
+            "text": "<@U12345> do something",
+            "ts": "1234567890.000001",
+            "channel": "C123",
+            "user": "U12345",
+        }
 
         with patch(
             "bender.slack_handler.invoke_claude",
@@ -107,10 +128,54 @@ class TestHandleMention:
         ):
             await handler(event=event, say=mock_say)
 
-        mock_say.assert_called_once()
-        call_kwargs = mock_say.call_args[1]
+        assert mock_say.await_count == 2
+        call_kwargs = mock_say.await_args_list[1].kwargs
         assert "Sorry, something went wrong" in call_kwargs["text"]
         assert "CLI crashed" in call_kwargs["text"]
+
+    async def test_mention_from_unauthorized_channel_is_ignored(
+        self,
+        setup_handler,
+        session_manager: SessionManager,
+        mock_say: AsyncMock,
+    ) -> None:
+        """A message outside the explicit channel allowlist cannot invoke Claude."""
+        handler = setup_handler["app_mention"]
+        event = {
+            "text": "<@UBENDER> inspect the data",
+            "ts": "1234567890.000001",
+            "channel": "C99999",
+            "user": "U12345",
+        }
+
+        with patch("bender.slack_handler.invoke_claude", new_callable=AsyncMock) as mock_invoke:
+            await handler(event=event, say=mock_say)
+
+        mock_invoke.assert_not_awaited()
+        mock_say.assert_not_awaited()
+        assert await session_manager.get_session(event["ts"]) is None
+
+    async def test_mention_passes_configured_timeout(
+        self, setup_handler, mock_say: AsyncMock
+    ) -> None:
+        """Slack work uses the operator-configured Claude deadline."""
+        handler = setup_handler["app_mention"]
+        event = {
+            "text": "<@UBENDER> inspect the data",
+            "ts": "1234567890.000001",
+            "channel": "C123",
+            "user": "U99999",
+        }
+        mock_response = ClaudeResponse(result="Done", session_id="s1")
+
+        with patch(
+            "bender.slack_handler.invoke_claude",
+            new_callable=AsyncMock,
+            return_value=mock_response,
+        ) as mock_invoke:
+            await handler(event=event, say=mock_say)
+
+        assert mock_invoke.await_args.kwargs["timeout"] == 900
 
 
 class TestHandleMessage:
@@ -126,6 +191,7 @@ class TestHandleMessage:
             def decorator(func):
                 handlers[event_type] = func
                 return func
+
             return decorator
 
         mock_app.event = capture_event
@@ -144,6 +210,7 @@ class TestHandleMessage:
             "text": "yes, go ahead",
             "thread_ts": thread_ts,
             "channel": "C123",
+            "user": "U99999",
         }
 
         mock_response = ClaudeResponse(result="Done!", session_id="s1")
@@ -157,7 +224,13 @@ class TestHandleMessage:
         # Should invoke with resume=True
         mock_invoke.assert_called_once()
         assert mock_invoke.call_args[1]["resume"] is True
-        mock_say.assert_called_once_with(text="Done!", thread_ts=thread_ts)
+        assert mock_invoke.call_args[1]["timeout"] == 900
+        assert mock_invoke.call_args[1]["permission_mode"] == "bypassPermissions"
+        assert mock_say.await_args_list[0].kwargs["text"] == "Accepted — I’m working on this now."
+        assert mock_say.await_args_list[1].kwargs == {
+            "text": "Done!",
+            "thread_ts": thread_ts,
+        }
 
     async def test_thread_reply_ignores_bot_messages(
         self, setup_handler, session_manager: SessionManager, mock_say: AsyncMock
@@ -172,6 +245,7 @@ class TestHandleMessage:
             "thread_ts": thread_ts,
             "bot_id": "B12345",
             "channel": "C123",
+            "user": "U12345",
         }
 
         await handler(event=event, say=mock_say)
@@ -190,30 +264,28 @@ class TestHandleMessage:
             "thread_ts": thread_ts,
             "subtype": "channel_join",
             "channel": "C123",
+            "user": "U12345",
         }
 
         await handler(event=event, say=mock_say)
         mock_say.assert_not_called()
 
-    async def test_non_thread_message_ignored(
-        self, setup_handler, mock_say: AsyncMock
-    ) -> None:
+    async def test_non_thread_message_ignored(self, setup_handler, mock_say: AsyncMock) -> None:
         """Non-thread messages are ignored."""
         handler = setup_handler["message"]
-        event = {"text": "hello", "channel": "C123"}
+        event = {"text": "hello", "channel": "C123", "user": "U12345"}
 
         await handler(event=event, say=mock_say)
         mock_say.assert_not_called()
 
-    async def test_untracked_thread_ignored(
-        self, setup_handler, mock_say: AsyncMock
-    ) -> None:
+    async def test_untracked_thread_ignored(self, setup_handler, mock_say: AsyncMock) -> None:
         """Thread replies in untracked threads are ignored."""
         handler = setup_handler["message"]
         event = {
             "text": "hello",
             "thread_ts": "9999999999.999999",
             "channel": "C123",
+            "user": "U12345",
         }
 
         await handler(event=event, say=mock_say)
@@ -227,7 +299,12 @@ class TestHandleMessage:
         thread_ts = "1234567890.000001"
         await session_manager.create_session(thread_ts)
 
-        event = {"text": "<@U12345>", "thread_ts": thread_ts, "channel": "C123"}
+        event = {
+            "text": "<@U12345>",
+            "thread_ts": thread_ts,
+            "channel": "C123",
+            "user": "U12345",
+        }
 
         await handler(event=event, say=mock_say)
         mock_say.assert_not_called()
@@ -244,6 +321,7 @@ class TestHandleMessage:
             "text": "do something",
             "thread_ts": thread_ts,
             "channel": "C123",
+            "user": "U12345",
         }
 
         with patch(
@@ -253,5 +331,28 @@ class TestHandleMessage:
         ):
             await handler(event=event, say=mock_say)
 
-        mock_say.assert_called_once()
-        assert "Sorry, something went wrong" in mock_say.call_args[1]["text"]
+        assert mock_say.await_count == 2
+        assert "Sorry, something went wrong" in mock_say.await_args_list[1].kwargs["text"]
+
+    async def test_thread_reply_from_unauthorized_channel_is_ignored(
+        self,
+        setup_handler,
+        session_manager: SessionManager,
+        mock_say: AsyncMock,
+    ) -> None:
+        """A tracked thread cannot be resumed from a different Slack channel."""
+        handler = setup_handler["message"]
+        thread_ts = "1234567890.000001"
+        await session_manager.create_session(thread_ts)
+        event = {
+            "text": "show me the table",
+            "thread_ts": thread_ts,
+            "channel": "C99999",
+            "user": "U12345",
+        }
+
+        with patch("bender.slack_handler.invoke_claude", new_callable=AsyncMock) as mock_invoke:
+            await handler(event=event, say=mock_say)
+
+        mock_invoke.assert_not_awaited()
+        mock_say.assert_not_awaited()

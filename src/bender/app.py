@@ -57,11 +57,15 @@ def create_app(settings: Settings) -> BenderApp:
 async def start(app: BenderApp, settings: Settings) -> None:
     """Start both Slack Socket Mode and FastAPI server concurrently."""
     logger.info("Starting Slack Socket Mode handler")
-    logger.info("Starting FastAPI server on port %d", settings.bender_api_port)
+    logger.info(
+        "Starting FastAPI server on %s:%d",
+        settings.bender_api_host,
+        settings.bender_api_port,
+    )
 
     uvicorn_config = uvicorn.Config(
         app.fastapi_app,
-        host="0.0.0.0",
+        host=settings.bender_api_host,
         port=settings.bender_api_port,
         log_level=settings.log_level.lower(),
     )

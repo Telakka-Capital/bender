@@ -79,9 +79,7 @@ def create_api(
             )
         except SlackApiError as exc:
             logger.error("Failed to post to Slack: %s", exc)
-            raise HTTPException(
-                status_code=502, detail="Failed to post message to Slack"
-            ) from exc
+            raise HTTPException(status_code=502, detail="Failed to post message to Slack") from exc
 
         thread_ts = post_result["ts"]
         session_id = await sessions.create_session(thread_ts)
@@ -92,6 +90,8 @@ def create_api(
                 prompt=request.message,
                 workspace=settings.bender_workspace,
                 session_id=session_id,
+                timeout=settings.bender_timeout_seconds,
+                permission_mode=settings.bender_permission_mode,
             )
         except ClaudeCodeError as exc:
             logger.error("Claude Code invocation failed: %s", exc)
@@ -100,9 +100,7 @@ def create_api(
                 thread_ts=thread_ts,
                 text="An error occurred while processing this request.",
             )
-            raise HTTPException(
-                status_code=500, detail="Claude Code invocation failed"
-            ) from exc
+            raise HTTPException(status_code=500, detail="Claude Code invocation failed") from exc
 
         # Post the response in the thread, splitting long messages
         formatted = md_to_mrkdwn(response.result)

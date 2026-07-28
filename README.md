@@ -76,10 +76,19 @@ CLAUDE_CODE_OAUTH_TOKEN="..."        # Max subscription token
 
 # Optional
 BENDER_WORKSPACE="/home/agent"       # Working directory for Claude Code (default: cwd)
+BENDER_ALLOWED_CHANNELS="C0123456789" # Required comma-separated Slack channel IDs
+BENDER_TIMEOUT_SECONDS="900"         # Per-invocation timeout, 1-3600 seconds
+# BENDER_PERMISSION_MODE="bypassPermissions" # Optional; see safety note below
+BENDER_API_HOST="127.0.0.1"          # FastAPI bind address (default: loopback)
 BENDER_API_PORT="8080"               # FastAPI port (default: 8080)
 BENDER_API_KEY="your-secret-key"     # Bearer token for HTTP API authentication
 LOG_LEVEL="info"                     # Logging level (default: info)
 ```
+
+`BENDER_PERMISSION_MODE=bypassPermissions` enables unattended shell execution.
+Use it only when Bender runs as a dedicated OS user inside a tightly restricted
+service sandbox whose workspace contains only the intended data and output
+paths. Leave it unset in a general-purpose checkout or on an unrestricted host.
 
 ### Slack App Setup
 
@@ -93,6 +102,7 @@ LOG_LEVEL="info"                     # Logging level (default: info)
 4. Subscribe to these **Events**:
    - `app_mention` — Trigger on @mentions
    - `message.channels` — Listen for thread replies
+   - `message.groups` — Listen for thread replies in private channels
 5. Install the app to your workspace and copy the Bot User OAuth Token (`xoxb-...`)
 
 ### Workspace Directory
@@ -131,7 +141,8 @@ Mention `@Bender` in any channel where the bot is present:
 
 ```
 User: @Bender What's the status of the deployment?
-Bender: [Creates thread, invokes Claude Code, responds with result]
+Bender: Accepted — I’m working on this now.
+Bender: [Creates a session, invokes Claude Code, responds with the result]
 
 User (in thread): Can you rollback to the previous version?
 Bender: [Resumes same Claude Code session, preserving context]
