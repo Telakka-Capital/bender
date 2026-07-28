@@ -17,6 +17,7 @@ def settings(tmp_path: Path) -> Settings:
         slack_app_token="xapp-test-token",
         anthropic_api_key="sk-ant-test-key",
         bender_workspace=tmp_path,
+        bender_allowed_users="U12345",
         bender_api_port=9999,
         log_level="debug",
     )

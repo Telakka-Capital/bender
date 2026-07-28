@@ -1,8 +1,10 @@
 """Configuration module — loads and validates environment variables."""
 
 import logging
+import re
 from pathlib import Path
 
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -19,6 +21,9 @@ class Settings(BaseSettings):
 
     # Optional
     bender_workspace: Path = Path.cwd()
+    bender_allowed_users: str
+    bender_timeout_seconds: int = Field(default=900, ge=1, le=3600)
+    bender_api_host: str = "127.0.0.1"
     bender_api_port: int = 8080
     log_level: str = "info"
 
@@ -26,6 +31,22 @@ class Settings(BaseSettings):
     bender_api_key: str | None = None
 
     model_config = {"case_sensitive": False}
+
+    @field_validator("bender_allowed_users")
+    @classmethod
+    def validate_allowed_users(cls, value: str) -> str:
+        """Require an explicit comma-separated Slack user allowlist."""
+        entries = [entry.strip() for entry in value.split(",")]
+        if not entries or any(
+            not entry or re.fullmatch(r"[UW][A-Z0-9]+", entry) is None for entry in entries
+        ):
+            raise ValueError("BENDER_ALLOWED_USERS must contain comma-separated Slack user IDs")
+        return ",".join(entries)
+
+    @property
+    def allowed_user_ids(self) -> frozenset[str]:
+        """Return the normalized Slack user allowlist."""
+        return frozenset(self.bender_allowed_users.split(","))
 
     def validate_auth(self) -> None:
         """Ensure at least one Claude Code authentication method is configured."""
@@ -48,7 +69,7 @@ def configure_logging(level: str) -> None:
 
 def load_settings() -> Settings:
     """Load settings from environment, validate, and configure logging."""
-    settings = Settings()
+    settings = Settings()  # type: ignore[call-arg]  # Values come from the environment.
     settings.validate_auth()
     configure_logging(settings.log_level)
     return settings

@@ -1,9 +1,10 @@
 """Tests for the main application module."""
 
-from unittest.mock import MagicMock, patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from bender import __version__
-from bender.app import BenderApp, create_app
+from bender.app import BenderApp, create_app, start
 from bender.config import Settings
 
 
@@ -52,3 +53,23 @@ class TestCreateApp:
         mock_handler_cls.assert_called_once()
         call_args = mock_handler_cls.call_args
         assert call_args[0][1] == settings.slack_app_token
+
+    async def test_start_binds_fastapi_to_configured_host(self, settings: Settings) -> None:
+        """The HTTP API honors the configured loopback bind address."""
+        settings.bender_api_host = "127.0.0.2"
+        app = SimpleNamespace(
+            fastapi_app=MagicMock(),
+            socket_handler=SimpleNamespace(
+                start_async=AsyncMock(return_value=None),
+            ),
+        )
+        mock_server = MagicMock()
+        mock_server.serve = AsyncMock(return_value=None)
+
+        with (
+            patch("bender.app.uvicorn.Config") as mock_config,
+            patch("bender.app.uvicorn.Server", return_value=mock_server),
+        ):
+            await start(app, settings)
+
+        assert mock_config.call_args.kwargs["host"] == "127.0.0.2"
