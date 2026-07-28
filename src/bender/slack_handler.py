@@ -102,15 +102,15 @@ def register_handlers(app: AsyncApp, settings: Settings, sessions: SessionManage
 
 
 def _is_allowed(event: dict, settings: Settings) -> bool:
-    """Return whether the event comes from an explicitly allowed Slack user."""
-    user_id = event.get("user", "")
-    if user_id in settings.allowed_user_ids:
+    """Return whether the event comes from an explicitly allowed Slack channel."""
+    channel_id = event.get("channel", "")
+    if channel_id in settings.allowed_channel_ids:
         return True
 
     logger.warning(
-        "Ignoring Slack event from unauthorized user=%s channel=%s",
-        user_id or "<missing>",
-        event.get("channel", ""),
+        "Ignoring Slack event from unauthorized channel=%s user=%s",
+        channel_id or "<missing>",
+        event.get("user", ""),
     )
     return False
 

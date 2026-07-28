@@ -71,7 +71,7 @@ class TestHandleMention:
             "text": "<@U12345> check the logs",
             "ts": "1234567890.000001",
             "channel": "C123",
-            "user": "U12345",
+            "user": "U99999",
         }
 
         mock_response = ClaudeResponse(result="Logs look fine", session_id="s1")
@@ -133,19 +133,19 @@ class TestHandleMention:
         assert "Sorry, something went wrong" in call_kwargs["text"]
         assert "CLI crashed" in call_kwargs["text"]
 
-    async def test_unauthorized_mention_is_ignored(
+    async def test_mention_from_unauthorized_channel_is_ignored(
         self,
         setup_handler,
         session_manager: SessionManager,
         mock_say: AsyncMock,
     ) -> None:
-        """A Slack user outside the explicit allowlist cannot invoke Claude."""
+        """A message outside the explicit channel allowlist cannot invoke Claude."""
         handler = setup_handler["app_mention"]
         event = {
             "text": "<@UBENDER> inspect the data",
             "ts": "1234567890.000001",
-            "channel": "C123",
-            "user": "U99999",
+            "channel": "C99999",
+            "user": "U12345",
         }
 
         with patch("bender.slack_handler.invoke_claude", new_callable=AsyncMock) as mock_invoke:
@@ -164,7 +164,7 @@ class TestHandleMention:
             "text": "<@UBENDER> inspect the data",
             "ts": "1234567890.000001",
             "channel": "C123",
-            "user": "U12345",
+            "user": "U99999",
         }
         mock_response = ClaudeResponse(result="Done", session_id="s1")
 
@@ -210,7 +210,7 @@ class TestHandleMessage:
             "text": "yes, go ahead",
             "thread_ts": thread_ts,
             "channel": "C123",
-            "user": "U12345",
+            "user": "U99999",
         }
 
         mock_response = ClaudeResponse(result="Done!", session_id="s1")
@@ -333,21 +333,21 @@ class TestHandleMessage:
         assert mock_say.await_count == 2
         assert "Sorry, something went wrong" in mock_say.await_args_list[1].kwargs["text"]
 
-    async def test_unauthorized_thread_reply_is_ignored(
+    async def test_thread_reply_from_unauthorized_channel_is_ignored(
         self,
         setup_handler,
         session_manager: SessionManager,
         mock_say: AsyncMock,
     ) -> None:
-        """An allowlisted session cannot be resumed by a different Slack user."""
+        """A tracked thread cannot be resumed from a different Slack channel."""
         handler = setup_handler["message"]
         thread_ts = "1234567890.000001"
         await session_manager.create_session(thread_ts)
         event = {
             "text": "show me the table",
             "thread_ts": thread_ts,
-            "channel": "C123",
-            "user": "U99999",
+            "channel": "C99999",
+            "user": "U12345",
         }
 
         with patch("bender.slack_handler.invoke_claude", new_callable=AsyncMock) as mock_invoke:

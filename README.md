@@ -76,7 +76,7 @@ CLAUDE_CODE_OAUTH_TOKEN="..."        # Max subscription token
 
 # Optional
 BENDER_WORKSPACE="/home/agent"       # Working directory for Claude Code (default: cwd)
-BENDER_ALLOWED_USERS="U0123456789"   # Required comma-separated Slack user IDs
+BENDER_ALLOWED_CHANNELS="C0123456789" # Required comma-separated Slack channel IDs
 BENDER_TIMEOUT_SECONDS="900"         # Per-invocation timeout, 1-3600 seconds
 BENDER_API_HOST="127.0.0.1"          # FastAPI bind address (default: loopback)
 BENDER_API_PORT="8080"               # FastAPI port (default: 8080)

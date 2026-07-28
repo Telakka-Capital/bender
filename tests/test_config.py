@@ -18,7 +18,7 @@ class TestSettings:
             slack_app_token="xapp-test",
             anthropic_api_key="sk-ant-test",
             bender_workspace=tmp_path,
-            bender_allowed_users="U12345,U67890",
+            bender_allowed_channels="C12345,C67890",
             bender_timeout_seconds=900,
             bender_api_host="127.0.0.1",
             bender_api_port=9090,
@@ -28,7 +28,7 @@ class TestSettings:
         assert s.slack_app_token == "xapp-test"
         assert s.anthropic_api_key == "sk-ant-test"
         assert s.bender_workspace == tmp_path
-        assert s.allowed_user_ids == frozenset({"U12345", "U67890"})
+        assert s.allowed_channel_ids == frozenset({"C12345", "C67890"})
         assert s.bender_timeout_seconds == 900
         assert s.bender_api_host == "127.0.0.1"
         assert s.bender_api_port == 9090
@@ -40,7 +40,7 @@ class TestSettings:
             slack_bot_token="xoxb-test",
             slack_app_token="xapp-test",
             anthropic_api_key="sk-ant-test",
-            bender_allowed_users="U12345",
+            bender_allowed_channels="C12345",
         )
         assert s.bender_workspace == Path.cwd()
         assert s.bender_timeout_seconds == 900
@@ -54,7 +54,7 @@ class TestSettings:
             slack_bot_token="xoxb-test",
             slack_app_token="xapp-test",
             anthropic_api_key="sk-ant-test",
-            bender_allowed_users="U12345",
+            bender_allowed_channels="C12345",
         )
         s.validate_auth()  # Should not raise
 
@@ -64,7 +64,7 @@ class TestSettings:
             slack_bot_token="xoxb-test",
             slack_app_token="xapp-test",
             claude_code_oauth_token="oauth-test-token",
-            bender_allowed_users="U12345",
+            bender_allowed_channels="C12345",
         )
         s.validate_auth()  # Should not raise
 
@@ -75,7 +75,7 @@ class TestSettings:
             slack_app_token="xapp-test",
             anthropic_api_key="sk-ant-test",
             claude_code_oauth_token="oauth-test-token",
-            bender_allowed_users="U12345",
+            bender_allowed_channels="C12345",
         )
         s.validate_auth()  # Should not raise
 
@@ -86,7 +86,7 @@ class TestSettings:
         s = Settings(
             slack_bot_token="xoxb-test",
             slack_app_token="xapp-test",
-            bender_allowed_users="U12345",
+            bender_allowed_channels="C12345",
         )
         with pytest.raises(ValueError, match="At least one authentication method"):
             s.validate_auth()
@@ -96,7 +96,7 @@ class TestSettings:
         monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-from-env")
         monkeypatch.setenv("SLACK_APP_TOKEN", "xapp-from-env")
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-from-env")
-        monkeypatch.setenv("BENDER_ALLOWED_USERS", "U111,U222")
+        monkeypatch.setenv("BENDER_ALLOWED_CHANNELS", "C111,C222")
         monkeypatch.setenv("BENDER_TIMEOUT_SECONDS", "600")
         monkeypatch.setenv("BENDER_API_HOST", "127.0.0.2")
         monkeypatch.setenv("BENDER_API_PORT", "3000")
@@ -106,21 +106,21 @@ class TestSettings:
         assert s.slack_bot_token == "xoxb-from-env"
         assert s.slack_app_token == "xapp-from-env"
         assert s.anthropic_api_key == "sk-ant-from-env"
-        assert s.allowed_user_ids == frozenset({"U111", "U222"})
+        assert s.allowed_channel_ids == frozenset({"C111", "C222"})
         assert s.bender_timeout_seconds == 600
         assert s.bender_api_host == "127.0.0.2"
         assert s.bender_api_port == 3000
         assert s.log_level == "warning"
 
-    @pytest.mark.parametrize("value", ["", " ", ",", "U12345,"])
-    def test_settings_rejects_empty_allowed_user_entries(self, value: str) -> None:
-        """The Slack allowlist must contain only explicit non-empty user IDs."""
-        with pytest.raises(ValueError, match="BENDER_ALLOWED_USERS"):
+    @pytest.mark.parametrize("value", ["", " ", ",", "C12345,", "U12345"])
+    def test_settings_rejects_empty_allowed_channel_entries(self, value: str) -> None:
+        """The Slack allowlist must contain only explicit non-empty channel IDs."""
+        with pytest.raises(ValueError, match="BENDER_ALLOWED_CHANNELS"):
             Settings(
                 slack_bot_token="xoxb-test",
                 slack_app_token="xapp-test",
                 anthropic_api_key="sk-ant-test",
-                bender_allowed_users=value,
+                bender_allowed_channels=value,
             )
 
 
@@ -157,7 +157,7 @@ class TestLoadSettings:
         monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-test")
         monkeypatch.setenv("SLACK_APP_TOKEN", "xapp-test")
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
-        monkeypatch.setenv("BENDER_ALLOWED_USERS", "U12345")
+        monkeypatch.setenv("BENDER_ALLOWED_CHANNELS", "C12345")
 
         s = load_settings()
         assert s.slack_bot_token == "xoxb-test"
@@ -166,7 +166,7 @@ class TestLoadSettings:
         """load_settings raises when no auth is provided."""
         monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-test")
         monkeypatch.setenv("SLACK_APP_TOKEN", "xapp-test")
-        monkeypatch.setenv("BENDER_ALLOWED_USERS", "U12345")
+        monkeypatch.setenv("BENDER_ALLOWED_CHANNELS", "C12345")
         # Clear any pre-existing auth env vars
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
