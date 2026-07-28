@@ -91,6 +91,7 @@ def create_api(
                 workspace=settings.bender_workspace,
                 session_id=session_id,
                 timeout=settings.bender_timeout_seconds,
+                permission_mode=settings.bender_permission_mode,
             )
         except ClaudeCodeError as exc:
             logger.error("Claude Code invocation failed: %s", exc)

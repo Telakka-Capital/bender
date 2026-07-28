@@ -53,6 +53,7 @@ def register_handlers(app: AsyncApp, settings: Settings, sessions: SessionManage
                 workspace=settings.bender_workspace,
                 session_id=session_id,
                 timeout=settings.bender_timeout_seconds,
+                permission_mode=settings.bender_permission_mode,
             )
             await _post_response(say, response.result, thread_ts)
         except ClaudeCodeError as exc:
@@ -94,6 +95,7 @@ def register_handlers(app: AsyncApp, settings: Settings, sessions: SessionManage
                 session_id=session_id,
                 resume=True,
                 timeout=settings.bender_timeout_seconds,
+                permission_mode=settings.bender_permission_mode,
             )
             await _post_response(say, response.result, thread_ts)
         except ClaudeCodeError as exc:

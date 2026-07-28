@@ -3,6 +3,7 @@
 import logging
 import re
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
@@ -23,6 +24,17 @@ class Settings(BaseSettings):
     bender_workspace: Path = Path.cwd()
     bender_allowed_channels: str
     bender_timeout_seconds: int = Field(default=900, ge=1, le=3600)
+    bender_permission_mode: (
+        Literal[
+            "acceptEdits",
+            "auto",
+            "bypassPermissions",
+            "manual",
+            "dontAsk",
+            "plan",
+        ]
+        | None
+    ) = None
     bender_api_host: str = "127.0.0.1"
     bender_api_port: int = 8080
     log_level: str = "info"

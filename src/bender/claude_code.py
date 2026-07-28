@@ -31,6 +31,7 @@ async def invoke_claude(
     session_id: str | None = None,
     resume: bool = False,
     timeout: int = DEFAULT_TIMEOUT_SECONDS,
+    permission_mode: str | None = None,
 ) -> ClaudeResponse:
     """Invoke Claude Code CLI in headless mode via subprocess.
 
@@ -40,6 +41,7 @@ async def invoke_claude(
         session_id: Session ID for new or resumed sessions.
         resume: Whether to resume an existing session.
         timeout: Maximum execution time in seconds.
+        permission_mode: Optional Claude Code permission mode for unattended runs.
 
     Returns:
         ClaudeResponse with the parsed result.
@@ -48,6 +50,9 @@ async def invoke_claude(
         ClaudeCodeError: If the CLI invocation fails.
     """
     cmd = ["claude", "--print", "--output-format", "json"]
+
+    if permission_mode:
+        cmd.extend(["--permission-mode", permission_mode])
 
     if resume and session_id:
         cmd.extend(["--resume", session_id])

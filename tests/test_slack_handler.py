@@ -225,6 +225,7 @@ class TestHandleMessage:
         mock_invoke.assert_called_once()
         assert mock_invoke.call_args[1]["resume"] is True
         assert mock_invoke.call_args[1]["timeout"] == 900
+        assert mock_invoke.call_args[1]["permission_mode"] == "bypassPermissions"
         assert mock_say.await_args_list[0].kwargs["text"] == "Accepted — I’m working on this now."
         assert mock_say.await_args_list[1].kwargs == {
             "text": "Done!",

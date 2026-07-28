@@ -20,6 +20,7 @@ class TestSettings:
             bender_workspace=tmp_path,
             bender_allowed_channels="C12345,C67890",
             bender_timeout_seconds=900,
+            bender_permission_mode="bypassPermissions",
             bender_api_host="127.0.0.1",
             bender_api_port=9090,
             log_level="debug",
@@ -30,6 +31,7 @@ class TestSettings:
         assert s.bender_workspace == tmp_path
         assert s.allowed_channel_ids == frozenset({"C12345", "C67890"})
         assert s.bender_timeout_seconds == 900
+        assert s.bender_permission_mode == "bypassPermissions"
         assert s.bender_api_host == "127.0.0.1"
         assert s.bender_api_port == 9090
         assert s.log_level == "debug"
@@ -44,6 +46,7 @@ class TestSettings:
         )
         assert s.bender_workspace == Path.cwd()
         assert s.bender_timeout_seconds == 900
+        assert s.bender_permission_mode is None
         assert s.bender_api_host == "127.0.0.1"
         assert s.bender_api_port == 8080
         assert s.log_level == "info"
@@ -98,6 +101,7 @@ class TestSettings:
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-from-env")
         monkeypatch.setenv("BENDER_ALLOWED_CHANNELS", "C111,C222")
         monkeypatch.setenv("BENDER_TIMEOUT_SECONDS", "600")
+        monkeypatch.setenv("BENDER_PERMISSION_MODE", "dontAsk")
         monkeypatch.setenv("BENDER_API_HOST", "127.0.0.2")
         monkeypatch.setenv("BENDER_API_PORT", "3000")
         monkeypatch.setenv("LOG_LEVEL", "warning")
@@ -108,6 +112,7 @@ class TestSettings:
         assert s.anthropic_api_key == "sk-ant-from-env"
         assert s.allowed_channel_ids == frozenset({"C111", "C222"})
         assert s.bender_timeout_seconds == 600
+        assert s.bender_permission_mode == "dontAsk"
         assert s.bender_api_host == "127.0.0.2"
         assert s.bender_api_port == 3000
         assert s.log_level == "warning"
@@ -121,6 +126,17 @@ class TestSettings:
                 slack_app_token="xapp-test",
                 anthropic_api_key="sk-ant-test",
                 bender_allowed_channels=value,
+            )
+
+    def test_settings_rejects_unknown_permission_mode(self) -> None:
+        """Only permission modes supported by Claude Code are accepted."""
+        with pytest.raises(ValueError, match="bender_permission_mode"):
+            Settings(
+                slack_bot_token="xoxb-test",
+                slack_app_token="xapp-test",
+                anthropic_api_key="sk-ant-test",
+                bender_allowed_channels="C12345",
+                bender_permission_mode="unattended",
             )
 
 
